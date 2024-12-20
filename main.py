@@ -114,15 +114,62 @@ def analyze_with_ai(cleaned_html, questions, current_url, session_id):
     )
     
     return json.loads(response.choices[0].message.content)
+
+def check_url_for_questions(url, questions_to_check, base_url, session_id, iteration_data, current_depth=0):
+    if iteration_data['count'] >= iteration_data['max']:
+        print(f"\nOsiągnięto maksymalną liczbę iteracji ({iteration_data['max']})")
+        return {}
+
+    iteration_data['count'] += 1
+    print(f"\nIteracja {iteration_data['count']} z {iteration_data['max']}")
+    print(f"Sprawdzam URL: {url}")
+
+    html_content = get_page_content(url)
+    if not html_content:
+        return {}
+
+    cleaned_html = clean_html(html_content)
+    result = analyze_with_ai(cleaned_html, questions_to_check, url, session_id)
+    print(f"\nWynik analizy:")
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+    # Sprawdzamy każde pytanie, które wciąż nie ma odpowiedzi
+    next_questions = {}
+    for q_id, q_data in result['questions'].items():
+        if q_data['answer'] is None and q_data['suggested_link']:
+            next_questions[q_id] = questions_to_check[q_id]
+            suggested_link = q_data['suggested_link']
+            full_url = base_url.rstrip('/') + suggested_link if suggested_link.startswith('/') else suggested_link
+            
+            # Rekurencyjnie sprawdzamy sugerowany link
+            sub_results = check_url_for_questions(
+                full_url, 
+                {q_id: questions_to_check[q_id]}, 
+                base_url, 
+                session_id, 
+                iteration_data,
+                current_depth + 1
+            )
+            
+            # Aktualizujemy wynik o znalezione odpowiedzi
+            if sub_results:
+                result['questions'][q_id].update(sub_results.get('questions', {}).get(q_id, {}))
+
+    return result
     
 if __name__ == "__main__":
-
+    MAX_ITERATIONS = 10
+    iteration_data = {
+        'count': 0,
+        'max': MAX_ITERATIONS
+    }
+    
     session_id = str(uuid.uuid4())
     print(f"ID sesji: {session_id}")
 
-    url = input("Proszę podać link do strony, którą chcesz przeanalizować: ")
+    base_url = input("Proszę podać link do strony, którą chcesz przeanalizować: ")
 
-    if not url:
+    if not base_url:
         print("Błąd: Nie podano URL")
         exit()
 
@@ -136,13 +183,14 @@ if __name__ == "__main__":
     for num, question in questions.items():
         print(f"{num}: {question}")
 
-    html_content = get_page_content(url)
-
-    if html_content:
-        cleaned_html = clean_html(html_content)
-        print("Wyczyszczony HTML:")
-        print(cleaned_html)
-
-    result = analyze_with_ai(cleaned_html, questions, url, session_id)
-
-    print(result)
+    # Rozpoczynamy analizę od głównej strony
+    final_results = check_url_for_questions(
+        base_url, 
+        questions, 
+        base_url, 
+        session_id, 
+        iteration_data
+    )
+    
+    print("\nKońcowe wyniki:")
+    print(json.dumps(final_results, ensure_ascii=False, indent=2))
