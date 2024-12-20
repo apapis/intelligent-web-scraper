@@ -36,6 +36,21 @@ def clean_html(html_content):
         return str(soup.body) if soup.body else str(soup)
     return ""
 
+def get_questions_from_user():
+    questions = {}
+    print("\nWprowadź pytania (aby zakończyć, naciśnij Enter bez wpisywania pytania):")
+
+    question_num = 1
+    while True:
+        question = input(f"Pytanie {question_num}: ")
+        if not question:
+            break
+
+        questions[f"{question_num:02d}"] = question
+        question_num += 1
+
+    return questions
+
 if __name__ == "__main__":
 
     url = input("Proszę podać link do strony, którą chcesz przeanalizować: ")
@@ -44,6 +59,16 @@ if __name__ == "__main__":
         print("Błąd: Nie podano URL")
         exit()
 
+    questions = get_questions_from_user()
+
+    if not questions:
+        print("Nie wprowadzono żadnych pytań")
+        exit()
+
+    print("\nPodsumowanie wprowadzonych pytań:")
+    for num, question in questions.items():
+        print(f"{num}: {question}")
+        
     html_content = get_page_content(url)
 
     if html_content:
