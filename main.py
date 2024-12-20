@@ -38,7 +38,11 @@ def clean_html(html_content):
 
 if __name__ == "__main__":
 
-    url = os.getenv('URL')
+    url = input("Proszę podać link do strony, którą chcesz przeanalizować: ")
+
+    if not url:
+        print("Błąd: Nie podano URL")
+        exit()
 
     html_content = get_page_content(url)
 
